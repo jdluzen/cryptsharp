@@ -1,0 +1,6 @@
+syntax: glob
+bin/*
+CryptSharp/obj/*
+*.suo
+CryptSharp.Demo/obj/*
+*.userprefs
