@@ -1,7 +1,7 @@
 ﻿#region License
 /*
-Illusory Studios C# Crypto Library (CryptSharp)
-Copyright (c) 2011 James F. Bellinger <jfb@zer7.com>
+CryptSharp
+Copyright (c) 2011 James F. Bellinger <http://www.zer7.com/software/cryptsharp>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -21,8 +21,9 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using CryptSharp.Utility;
 
-namespace CryptSharp.Demo.Blowfish
+namespace CryptSharp.Demo.BlowfishTest
 {
     static class TestVectors
     {
@@ -42,18 +43,18 @@ namespace CryptSharp.Demo.Blowfish
                         if (!match.Success) { continue; }
 
                         string key = match.Groups[1].Value, clear = match.Groups[2].Value, cipher = match.Groups[3].Value;
-                        byte[] keyBytes = Utility.HexBase16.Decode(key.ToCharArray());
-                        byte[] clearBytes = Utility.HexBase16.Decode(clear.ToCharArray());
+                        byte[] keyBytes = Base16Encoding.Hex.GetBytes(key);
+                        byte[] clearBytes = Base16Encoding.Hex.GetBytes(clear);
 
                         Console.Write(".");
                         using (Utility.BlowfishCipher fish = Utility.BlowfishCipher.Create(keyBytes))
                         {
                             byte[] testCipherBytes = new byte[8]; fish.Encipher(clearBytes, 0, testCipherBytes, 0);
-                            string testCipher = new string(Utility.HexBase16.Encode(testCipherBytes));
+                            string testCipher = Base16Encoding.Hex.GetString(testCipherBytes);
                             if (cipher != testCipher) { Console.WriteLine("WARNING: Encipher failed test ({0} became {1})", cipher, testCipher); }
 
                             byte[] testClearBytes = new byte[8]; fish.Decipher(testCipherBytes, 0, testClearBytes, 0);
-                            string testClear = new string(Utility.HexBase16.Encode(testClearBytes));
+                            string testClear = Base16Encoding.Hex.GetString(testClearBytes);
                             if (clear != testClear) { Console.WriteLine("WARNING: Decipher failed ({0} became {1})", clear, testClear); }
                         }
                     }

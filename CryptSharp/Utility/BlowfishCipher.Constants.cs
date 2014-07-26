@@ -1,7 +1,7 @@
 #region License
 /*
-Illusory Studios C# Crypto Library (CryptSharp)
-Copyright (c) 2010 James F. Bellinger <jfb@zer7.com>
+CryptSharp
+Copyright (c) 2010 James F. Bellinger <http://www.zer7.com/software/cryptsharp>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -17,19 +17,19 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 #endregion
 
-using System;
-using System.Text;
-
 namespace CryptSharp.Utility
 {
 	public partial class BlowfishCipher
 	{
         // Change this if you want a special but incompatible version of BCrypt.
+        /// <summary>
+        /// The special string used encrypted in the BCrypt algorithm.
+        /// </summary>
         public static string BCryptMagic { get { return "OrpheanBeholderScryDoubt"; } }
 
 		const int N = 16;
 
-		static uint[][] S0 = new uint[][]
+		static readonly uint[][] S0 = new uint[][]
 		{
 			new uint[]
 			{
@@ -220,7 +220,7 @@ namespace CryptSharp.Utility
 			}
 		};
 		
-		static uint[] P0 = new uint[]
+		static readonly uint[] P0 = new uint[]
 		{
 			0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344, 0xa4093822, 0x299f31d0,
 			0x082efa98, 0xec4e6c89, 0x452821e6, 0x38d01377, 0xbe5466cf, 0x34e90c6c,

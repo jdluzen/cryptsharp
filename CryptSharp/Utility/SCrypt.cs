@@ -1,7 +1,7 @@
 ﻿#region License
 /*
-Illusory Studios C# Crypto Library (CryptSharp)
-Copyright (c) 2011 James F. Bellinger <jfb@zer7.com>
+CryptSharp
+Copyright (c) 2011, 2013 James F. Bellinger <http://www.zer7.com/software/cryptsharp>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -20,6 +20,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 using System;
 using System.Security.Cryptography;
 using System.Threading;
+using CryptSharp.Internal;
 
 namespace CryptSharp.Utility
 {
@@ -27,64 +28,145 @@ namespace CryptSharp.Utility
     // TODO: Test on a big-endian machine and make sure it works.
     // TODO: Feel hatred for whatever genius decided C# wouldn't have 'safe'
     //       stack-allocated arrays. He has stricken ugliness upon a thousand codes.
+    /// <summary>
+    /// Implements the SCrypt key derivation function.
+    /// </summary>
     public static class SCrypt
     {
         const int hLen = 32;
-        static readonly Pbkdf2.ComputeHmacCallback _hmacCallback =
-            Pbkdf2.CallbackFromHmac<HMACSHA256>();
 
-        public static void ComputeKey(byte[] key, byte[] salt,
-            int cost, int blockSize, int parallel, int? maxThreads, byte[] output)
+        /// <summary>
+        /// Computes a derived key.
+        /// </summary>
+        /// <param name="key">The key to derive from.</param>
+        /// <param name="salt">
+        ///     The salt.
+        ///     A unique salt means a unique SCrypt stream, even if the original key is identical.
+        /// </param>
+        /// <param name="cost">
+        ///     The cost parameter, typically a fairly large number such as 262144.
+        ///     Memory usage and CPU time scale approximately linearly with this parameter.
+        /// </param>
+        /// <param name="blockSize">
+        ///     The mixing block size, typically 8.
+        ///     Memory usage and CPU time scale approximately linearly with this parameter.
+        /// </param>
+        /// <param name="parallel">
+        ///     The level of parallelism, typically 1.
+        ///     CPU time scales approximately linearly with this parameter.
+        /// </param>
+        /// <param name="maxThreads">
+        ///     The maximum number of threads to spawn to derive the key.
+        ///     This is limited by the <paramref name="parallel"/> value.
+        ///     <c>null</c> will use as many threads as possible.
+        /// </param>
+        /// <param name="derivedKeyLength">The desired length of the derived key.</param>
+        /// <returns>The derived key.</returns>
+        public static byte[] ComputeDerivedKey(byte[] key, byte[] salt,
+                                               int cost, int blockSize, int parallel, int? maxThreads,
+                                               int derivedKeyLength)
         {
+            Check.Range("derivedKeyLength", derivedKeyLength, 0, int.MaxValue);
+
             using (Pbkdf2 kdf = GetStream(key, salt, cost, blockSize, parallel, maxThreads))
-                { kdf.Read(output); }
+            {
+                return kdf.Read(derivedKeyLength);
+            }
         }
 
+        /// <summary>
+        /// The SCrypt algorithm creates a salt which it then uses as a one-iteration
+        /// PBKDF2 key stream with SHA256 HMAC. This method lets you retrieve this intermediate salt.
+        /// </summary>
+        /// <param name="key">The key to derive from.</param>
+        /// <param name="salt">
+        ///     The salt.
+        ///     A unique salt means a unique SCrypt stream, even if the original key is identical.
+        /// </param>
+        /// <param name="cost">
+        ///     The cost parameter, typically a fairly large number such as 262144.
+        ///     Memory usage and CPU time scale approximately linearly with this parameter.
+        /// </param>
+        /// <param name="blockSize">
+        ///     The mixing block size, typically 8.
+        ///     Memory usage and CPU time scale approximately linearly with this parameter.
+        /// </param>
+        /// <param name="parallel">
+        ///     The level of parallelism, typically 1.
+        ///     CPU time scales approximately linearly with this parameter.
+        /// </param>
+        /// <param name="maxThreads">
+        ///     The maximum number of threads to spawn to derive the key.
+        ///     This is limited by the <paramref name="parallel"/> value.
+        ///     <c>null</c> will use as many threads as possible.
+        /// </param>
+        /// <returns>The effective salt.</returns>
         public static byte[] GetEffectivePbkdf2Salt(byte[] key, byte[] salt,
-            int cost, int blockSize, int parallel, int? maxThreads)
+                                                    int cost, int blockSize, int parallel, int? maxThreads)
         {
-            Helper.CheckNull("key", key); Helper.CheckNull("salt", salt);
+            Check.Null("key", key); Check.Null("salt", salt);
             return MFcrypt(key, salt, cost, blockSize, parallel, maxThreads);
         }
 
+        /// <summary>
+        /// Creates a derived key stream from which a derived key can be read.
+        /// </summary>
+        /// <param name="key">The key to derive from.</param>
+        /// <param name="salt">
+        ///     The salt.
+        ///     A unique salt means a unique scrypt stream, even if the original key is identical.
+        /// </param>
+        /// <param name="cost">
+        ///     The cost parameter, typically a fairly large number such as 262144.
+        ///     Memory usage and CPU time scale approximately linearly with this parameter.
+        /// </param>
+        /// <param name="blockSize">
+        ///     The mixing block size, typically 8.
+        ///     Memory usage and CPU time scale approximately linearly with this parameter.
+        /// </param>
+        /// <param name="parallel">
+        ///     The level of parallelism, typically 1.
+        ///     CPU time scales approximately linearly with this parameter.
+        /// </param>
+        /// <param name="maxThreads">
+        ///     The maximum number of threads to spawn to derive the key.
+        ///     This is limited by the <paramref name="parallel"/> value.
+        ///     <c>null</c> will use as many threads as possible.
+        /// </param>
+        /// <returns>The derived key stream.</returns>
         public static Pbkdf2 GetStream(byte[] key, byte[] salt,
-            int cost, int blockSize, int parallel, int? maxThreads)
+                                       int cost, int blockSize, int parallel, int? maxThreads)
         {
             byte[] B = GetEffectivePbkdf2Salt(key, salt, cost, blockSize, parallel, maxThreads);
-            Pbkdf2 kdf = new Pbkdf2(key, B, 1, _hmacCallback, hLen);
-            Clear(B); return kdf;
-        }
-
-        static void Clear(Array arr)
-        {
-            Array.Clear(arr, 0, arr.Length);
+            Pbkdf2 kdf = new Pbkdf2(new HMACSHA256(key), B, 1);
+            Security.Clear(B); return kdf;
         }
 
         static byte[] MFcrypt(byte[] P, byte[] S,
-            int cost, int blockSize, int parallel, int? maxThreads)
+                              int cost, int blockSize, int parallel, int? maxThreads)
         {
             int MFLen = blockSize * 128;
             if (maxThreads == null) { maxThreads = int.MaxValue; }
 
-            if (cost <= 0 || (cost & (cost - 1)) != 0) { throw new ArgumentOutOfRangeException("cost", "Cost must be a positive power of 2."); }
-            Helper.CheckRange("blockSize", blockSize, 1, int.MaxValue / 32);
-            Helper.CheckRange("parallel", parallel, 1, int.MaxValue / MFLen);
-            Helper.CheckRange("maxThreads", (int)maxThreads, 1, int.MaxValue);
+            if (!BitMath.IsPositivePowerOf2(cost))
+                { throw Exceptions.ArgumentOutOfRange("cost", "Cost must be a positive power of 2."); }
+            Check.Range("blockSize", blockSize, 1, int.MaxValue / 128);
+            Check.Range("parallel", parallel, 1, int.MaxValue / MFLen);
+            Check.Range("maxThreads", (int)maxThreads, 1, int.MaxValue);
 
-            byte[] B = new byte[parallel * MFLen];
-            Pbkdf2.ComputeKey(P, S, 1, _hmacCallback, hLen, B);
+            byte[] B = Pbkdf2.ComputeDerivedKey(new HMACSHA256(P), S, 1, parallel * MFLen);
 
             uint[] B0 = new uint[B.Length / 4];
-            for (int i = 0; i < B0.Length; i++) { B0[i] = Helper.BytesToUInt32LE(B, i * 4); } // code is easier with uint[]
+            for (int i = 0; i < B0.Length; i++) { B0[i] = BitPacking.UInt32FromLEBytes(B, i * 4); } // code is easier with uint[]
             ThreadSMixCalls(B0, MFLen, cost, blockSize, parallel, (int)maxThreads);
-            for (int i = 0; i < B0.Length; i++) { Helper.UInt32ToBytesLE(B0[i], B, i * 4); }
-            Clear(B0);
+            for (int i = 0; i < B0.Length; i++) { BitPacking.LEBytesFromUInt32(B0[i], B, i * 4); }
+            Security.Clear(B0);
 
             return B;
         }
 
         static void ThreadSMixCalls(uint[] B0, int MFLen,
-            int cost, int blockSize, int parallel, int maxThreads)
+                                    int cost, int blockSize, int parallel, int maxThreads)
         {
             int current = 0;
             ThreadStart workerThread = delegate()
@@ -108,7 +190,7 @@ namespace CryptSharp.Utility
         static void SMix(uint[] B, int Boffset, uint[] Bp, int Bpoffset, uint N, int r)
         {
             uint Nmask = N - 1; int Bs = 16 * 2 * r;
-            uint[] scratch1 = new uint[16], scratch2 = new uint[16];
+            uint[] scratch1 = new uint[16];
             uint[] scratchX = new uint[16], scratchY = new uint[Bs];
             uint[] scratchZ = new uint[Bs];
 
@@ -119,20 +201,20 @@ namespace CryptSharp.Utility
             for (uint i = 0; i < N; i++)
             {
                 Array.Copy(x, v[i], Bs);
-                BlockMix(x, 0, x, 0, scratchX, scratchY, scratch1, scratch2, r); 
+                BlockMix(x, 0, x, 0, scratchX, scratchY, scratch1, r); 
             }
             for (uint i = 0; i < N; i++)
             {
                 uint j = x[Bs - 16] & Nmask; uint[] vj = v[j];
                 for (int k = 0; k < scratchZ.Length; k++) { scratchZ[k] = x[k] ^ vj[k]; }
-                BlockMix(scratchZ, 0, x, 0, scratchX, scratchY, scratch1, scratch2, r);
+                BlockMix(scratchZ, 0, x, 0, scratchX, scratchY, scratch1, r);
             }
             Array.Copy(x, 0, Bp, Bpoffset, Bs);
 
-            for (int i = 0; i < v.Length; i++) { Clear(v[i]); }
-            Clear(v); Clear(x);
-            Clear(scratchX); Clear(scratchY); Clear(scratchZ);
-            Clear(scratch1); Clear(scratch2);
+            for (int i = 0; i < v.Length; i++) { Security.Clear(v[i]); }
+            Security.Clear(v); Security.Clear(x);
+            Security.Clear(scratchX); Security.Clear(scratchY); Security.Clear(scratchZ);
+            Security.Clear(scratch1);
         }
 
         static void BlockMix
@@ -142,8 +224,7 @@ namespace CryptSharp.Utility
              int    Bpoffset,
              uint[] x,        // 16
              uint[] y,        // 16*2*r -- unnecessary but it allows us to alias B and Bp
-             uint[] scratch1, // 16
-             uint[] scratch2, // 16
+             uint[] scratch,  // 16
              int r)
         {
             int k = Boffset, m = 0, n = 16 * r;
@@ -151,13 +232,13 @@ namespace CryptSharp.Utility
 
             for (int i = 0; i < r; i++)
             {
-                for (int j = 0; j < scratch1.Length; j++) { scratch1[j] = x[j] ^ B[j + k]; }
-                Salsa20Core.Compute(8, scratch1, 0, x, 0, scratch2);
+                for (int j = 0; j < scratch.Length; j++) { scratch[j] = x[j] ^ B[j + k]; }
+                Salsa20Core.Compute(8, scratch, 0, x, 0);
                 Array.Copy(x, 0, y, m, 16);
                 k += 16;
 
-                for (int j = 0; j < scratch1.Length; j++) { scratch1[j] = x[j] ^ B[j + k]; }
-                Salsa20Core.Compute(8, scratch1, 0, x, 0, scratch2);
+                for (int j = 0; j < scratch.Length; j++) { scratch[j] = x[j] ^ B[j + k]; }
+                Salsa20Core.Compute(8, scratch, 0, x, 0);
                 Array.Copy(x, 0, y, m + n, 16);
                 k += 16;
 

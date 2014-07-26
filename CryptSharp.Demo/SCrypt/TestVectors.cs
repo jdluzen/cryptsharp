@@ -1,7 +1,7 @@
 ﻿#region License
 /*
-Illusory Studios C# Crypto Library (CryptSharp)
-Copyright (c) 2010 James F. Bellinger <jfb@zer7.com>
+CryptSharp
+Copyright (c) 2010 James F. Bellinger <http://www.zer7.com/software/cryptsharp>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -18,10 +18,10 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #endregion
 
 using System;
-using System.Security.Cryptography;
 using System.Text;
+using CryptSharp.Utility;
 
-namespace CryptSharp.Demo.SCrypt
+namespace CryptSharp.Demo.SCryptTest
 {
     // Data Source: http://www.tarsnap.com/scrypt/scrypt.pdf Appendix B
     static class TestVectors
@@ -31,10 +31,9 @@ namespace CryptSharp.Demo.SCrypt
         {
             Console.Write(".");
 
-            byte[] derivedBytes = new byte[len];
-            Utility.SCrypt.ComputeKey
+            byte[] derivedBytes = Utility.SCrypt.ComputeDerivedKey
                 (Encoding.ASCII.GetBytes(password), Encoding.ASCII.GetBytes(salt),
-                 N, r, p, null, derivedBytes);
+                 N, r, p, null, len);
 
             expected = expected
                 .Replace(" ", "")
@@ -42,13 +41,15 @@ namespace CryptSharp.Demo.SCrypt
                 .Replace("\n", "")
                 .Replace("\t", "")
                 .ToUpper();
-            string derived = new string(Utility.HexBase16.Encode(derivedBytes));
+            string derived = Base16Encoding.Hex.GetString(derivedBytes);
             if (expected != derived) { Console.WriteLine("WARNING: SCrypt failed test ({0} instead of {1})", derived, expected); }
         }
 
         public static void Test()
         {
             Console.Write("Testing SCrypt");
+
+            int startTime = Environment.TickCount;
             TestOne("", "", 16, 1, 1, 64,
                 @"77 d6 57 62 38 65 7b 20 3b 19 ca 42 c1 8a 04 97
                   f1 6b 48 44 e3 07 4a e8 df df fa 3f ed e2 14 42
@@ -71,6 +72,7 @@ namespace CryptSharp.Demo.SCrypt
                   37 30 40 49 e8 a9 52 fb cb f4 5c 6f a7 7a 41 a4");*/
             // ^ This last one takes 1GB of memory and a long time.
             //   Feel free to enable it if you want to verify.
+            Console.Write("...({0} ms for all tests)...", Environment.TickCount - startTime);
 
             Console.WriteLine("done.");
         }

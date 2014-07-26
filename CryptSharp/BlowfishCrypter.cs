@@ -1,7 +1,7 @@
 #region License
 /*
-Illusory Studios C# Crypto Library (CryptSharp)
-Copyright (c) 2010 James F. Bellinger <jfb@zer7.com>
+CryptSharp
+Copyright (c) 2010, 2013 James F. Bellinger <http://www.zer7.com/software/cryptsharp>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -19,68 +19,124 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 using System;
 using System.Text.RegularExpressions;
+using CryptSharp.Internal;
 using CryptSharp.Utility;
 
 namespace CryptSharp
 {
+    /// <summary>
+    /// Blowfish crypt, sometimes called BCrypt. A very good choice.
+    /// </summary>
     public class BlowfishCrypter : Crypter
     {
-        static Regex _regex;
+        const int MaxPasswordLength = 72;
+        const int MinRounds = 4;
+        const int MaxRounds = 31;
 
-        static BlowfishCrypter()
+        static CrypterOptions _properties = new CrypterOptions()
         {
-            _regex = new Regex(@"\A" + Regex + @"\z");
+            { CrypterProperty.MaxPasswordLength, MaxPasswordLength },
+            { CrypterProperty.MinRounds, MinRounds },
+            { CrypterProperty.MaxRounds, MaxRounds }
+        }.MakeReadOnly();
+
+        static Regex _regex = new Regex(Regex, RegexOptions.CultureInvariant);
+
+        /// <inheritdoc />
+        public override string GenerateSalt(CrypterOptions options)
+        {
+            Check.Null("options", options);
+
+            int rounds = options.GetValue(CrypterOption.Rounds, 6);
+            Check.Range("CrypterOption.Rounds", rounds, MinRounds, MaxRounds);
+
+            string prefix;
+            switch (options.GetValue(CrypterOption.Variant, BlowfishCrypterVariant.Unspecified))
+            {
+                case BlowfishCrypterVariant.Unspecified: prefix = "$2a$"; break;
+                case BlowfishCrypterVariant.Compatible: prefix = "$2x$"; break;
+                case BlowfishCrypterVariant.Corrected: prefix = "$2y$"; break;
+                default: throw Exceptions.ArgumentOutOfRange("CrypterOption.Variant", "Unknown variant.");
+            }
+
+            return prefix
+                + rounds.ToString("00") + '$'
+                + Base64Encoding.Blowfish.GetString(Security.GenerateRandomBytes(16));
         }
 
-        public override string GenerateSalt()
+        /// <inheritdoc />
+        public override bool CanCrypt(string salt)
         {
-            return GenerateSalt(6);
+            Check.Null("salt", salt);
+
+            return salt.StartsWith("$2a$")
+                || salt.StartsWith("$2x$")
+                || salt.StartsWith("$2y$");
         }
 
-        public override string GenerateSalt(int rounds)
+        /// <inheritdoc />
+        public override string Crypt(byte[] password, string salt)
         {
-            Helper.CheckRange("rounds", rounds, 4, 31);
-            return string.Format("$2a${0}${1}", rounds.ToString("00"),
-                new string(UnixBase64.Encode(Crypter.GenerateSaltBytes(16))));
+            Check.Null("password", password);
+            Check.Null("salt", salt);
+
+            Match match = _regex.Match(salt);
+            if (!match.Success) { throw Exceptions.Argument("salt", "Invalid salt."); }
+
+            byte[] saltBytes = null, formattedKey = null, crypt = null;
+            try
+            {
+                string prefixString = match.Groups["prefix"].Value;
+                bool compatible = prefixString == "$2x$";
+
+                int rounds = int.Parse(match.Groups["rounds"].Value);
+                if (rounds < MinRounds || rounds > MaxRounds) { throw Exceptions.ArgumentOutOfRange("salt", "Invalid number of rounds."); }
+                saltBytes = Base64Encoding.Blowfish.GetBytes(match.Groups["salt"].Value);
+
+                formattedKey = FormatKey(password);
+                crypt = BlowfishCipher.BCrypt(formattedKey, saltBytes, rounds,
+                                              compatible
+                                                ? EksBlowfishKeyExpansionFlags.EmulateCryptBlowfishSignExtensionBug
+                                                : EksBlowfishKeyExpansionFlags.None);
+
+                string result = string.Format("{0}{1}${2}{3}", prefixString, rounds.ToString("00"),
+                    Base64Encoding.Blowfish.GetString(saltBytes),
+                    Base64Encoding.Blowfish.GetString(crypt));
+                return result;
+            }
+            finally
+            {
+                Security.Clear(saltBytes);
+                Security.Clear(formattedKey);
+                Security.Clear(crypt);
+            }
         }
 
-        public override string Crypt(byte[] key, string salt)
+        byte[] FormatKey(byte[] key)
         {
-            CheckKey(key); Helper.CheckNull("salt", salt);
+            // In my recent investigations using PHP to generate 8-bit test vectors, I found
+            // that PHP (and presumably other implementations based on crypt_blowfish) terminates
+            // when it encounters a null character. Not surprising from C code really, but important
+            // to handle.
+            int length = ByteArray.NullTerminatedLength(key, MaxPasswordLength);
 
-            Match saltMatch = _regex.Match(salt);
-            if (!saltMatch.Success) { throw new ArgumentException("Invalid salt.", "salt"); }
+            // For keys under 72 bytes, a null terminator is vital for compatibility.
+            byte[] formattedKey = new byte[Math.Min(length + 1, MaxPasswordLength)];
+            Array.Copy(key, formattedKey, length);
 
-            int rounds = int.Parse(saltMatch.Groups[1].Value);
-            if (rounds < 4 || rounds > 31) { throw new ArgumentException("Invalid number of rounds.", "salt"); }
-            byte[] saltBytes = UnixBase64.Decode(saltMatch.Groups[2].Value, 128);
-
-            bool resized = key.Length < MaxKeyLength;
-            if (resized) { Array.Resize(ref key, key.Length + 1); } // The ending null terminator is vital for compatibility
-            byte[] crypt = BlowfishCipher.BCrypt(key, saltBytes, rounds);
-
-            string result = string.Format("$2a${0}${1}{2}", rounds.ToString("00"),
-                new string(UnixBase64.Encode(saltBytes)),
-                new string(UnixBase64.Encode(crypt)));
-            Array.Clear(crypt, 0, crypt.Length); Array.Clear(saltBytes, 0, saltBytes.Length);
-            if (resized) { Array.Clear(key, 0, key.Length); } // This is new since we resized it.
-            return result;
+            return formattedKey;
         }
 
-        public override int MaxKeyLength
+        /// <inheritdoc />
+        public override CrypterOptions Properties
         {
-            get { return 72; }
+            get { return _properties; }
         }
 
-        public override int MinKeyLength
+        static string Regex
         {
-            get { return 0; }
-        }
-
-        public static string Regex
-        {
-            get { return @"\$2a\$([0-9]{2})\$([A-Za-z0-9./]{22})([A-Za-z0-9./]{"
-                + ((BlowfishCipher.BCryptLength * 8 + 5) / 6).ToString() + @"})?"; }
+            get { return @"\A(?<prefix>\$2[axy]\$)(?<rounds>[0-9]{2})\$(?<salt>[A-Za-z0-9./]{22})(?<crypt>[A-Za-z0-9./]{"
+                + ((BlowfishCipher.BCryptLength * 8 + 5) / 6).ToString() + @"})?\z"; }
         }
     }
 }

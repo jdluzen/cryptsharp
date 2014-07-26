@@ -1,7 +1,7 @@
 ﻿#region License
 /*
-Illusory Studios C# Crypto Library (CryptSharp)
-Copyright (c) 2011 James F. Bellinger <jfb@zer7.com>
+CryptSharp
+Copyright (c) 2011, 2013 James F. Bellinger <http://www.zer7.com/software/cryptsharp>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -18,37 +18,21 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #endregion
 
 using System;
+using System.IO;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using CryptSharp.Utility;
 
-namespace CryptSharp.Demo.Pbkdf2
+namespace CryptSharp.Demo.Pbkdf2Test
 {
-    // Data Source: http://tools.ietf.org/html/draft-josefsson-pbkdf2-test-vectors-02#page-3
     static class TestVectors
     {
-        static void TestSHA1(string password, string salt, int c, int len,
-            string expected)
-        {
-            Console.Write(".");
-
-            byte[] derivedBytes = new byte[len];
-            Utility.Pbkdf2.ComputeKey
-                (Encoding.ASCII.GetBytes(password), Encoding.ASCII.GetBytes(salt),
-                 c, Utility.Pbkdf2.CallbackFromHmac<HMACSHA1>(), 20, derivedBytes);
-
-            expected = expected
-                .Replace(" ", "")
-                .Replace("\r", "")
-                .Replace("\n", "")
-                .Replace("\t", "")
-                .ToUpper();
-            string derived = new string(Utility.HexBase16.Encode(derivedBytes));
-            if (expected != derived) { Console.WriteLine("WARNING: PBKDF2 failed test ({0} instead of {1})", derived, expected); }
-        }
-
         public static void Test()
         {
             Console.Write("Testing PBKDF2");
+
+            // Data Source: http://tools.ietf.org/html/draft-josefsson-pbkdf2-test-vectors-02#page-3
             TestSHA1("password", "salt", 1, 20,
                 @"0c 60 c8 0f 96 1f 0e 71
                 f3 a9 b5 24 af 60 12 06
@@ -69,7 +53,69 @@ namespace CryptSharp.Demo.Pbkdf2
             TestSHA1("pass\0word", "sa\0lt", 4096, 16,
                 @"56 fa 6a a7 55 48 09 9d
                   cc 37 d7 f0 34 25 e0 c3");
+
+            // The test vector file is generated with PHP 5.5+.
+            TestFile("CryptSharp.Demo.Pbkdf2.TestVectors-PBKDF2.txt");
+
             Console.WriteLine("done.");
+        }
+
+        static void TestSHA1(string password, string salt, int c, int len,
+            string expected)
+        {
+            Console.Write(".");
+
+            byte[] keyBytes = Encoding.ASCII.GetBytes(password);
+            byte[] saltBytes = Encoding.ASCII.GetBytes(salt);
+            byte[] derivedBytes = Utility.Pbkdf2.ComputeDerivedKey(new HMACSHA1(keyBytes), saltBytes, c, len);
+
+            expected = expected
+                .Replace(" ", "")
+                .Replace("\r", "")
+                .Replace("\n", "")
+                .Replace("\t", "")
+                .ToUpper();
+            string derived = Base16Encoding.Hex.GetString(derivedBytes);
+            if (expected != derived) { Console.WriteLine("WARNING: PBKDF2 failed test ({0} instead of {1})", derived, expected); }
+        }
+
+        static void TestFile(string filename)
+        {
+            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(filename))
+            {
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    int startTime = Environment.TickCount;
+
+                    string line; int count = 0;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        Console.Write(".");
+
+                        string[] parts = line.Split(new[] { ',' }, 4);
+                        if (parts.Length != 4) { continue; }
+
+                        byte[] key = Convert.FromBase64String(parts[0]);
+                        byte[] salt = Convert.FromBase64String(parts[1]);
+                        int iterations = int.Parse(parts[2]);
+                        byte[] expectedKey = Convert.FromBase64String(parts[3]);
+                        byte[] derivedKey = Pbkdf2.ComputeDerivedKey(new HMACSHA256(key), salt, iterations, 128);
+
+                        for (int i = 0; i < expectedKey.Length; i++)
+                        {
+                            if (expectedKey[i] != derivedKey[i])
+                            {
+                                Console.WriteLine("PBKDF2 entry #{0} does not match.", count + 1);
+                                break;
+                            }
+                        }
+
+                        count++;
+                    }
+
+                    Console.Write("...({0} ms for {1} vectors)...", Environment.TickCount - startTime, count);
+                }
+            }
         }
     }
 }
