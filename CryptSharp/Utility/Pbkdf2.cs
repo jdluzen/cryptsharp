@@ -127,12 +127,13 @@ namespace CryptSharp.Utility
         /// <summary>
         /// Closes the stream, clearing memory and disposing of the HMAC algorithm.
         /// </summary>
-        public override void Close()
+        public new void Dispose()
         {
             Security.Clear(_saltBuffer);
             Security.Clear(_digest);
             Security.Clear(_digestT1);
-            _hmacAlgorithm.Clear();
+            _hmacAlgorithm.Dispose();
+            base.Dispose();
         }
 
         void ComputeBlock(uint pos)

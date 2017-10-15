@@ -1,54 +1,58 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{E074A80A-B592-4B79-BBA9-94FB779673AA}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <RootNamespace>CryptSharp</RootNamespace>
-    <AssemblyName>CryptSharp.SCryptSubset</AssemblyName>
-    <ProjectTypeGuids>{EFBA0AD7-5A72-4C68-AF49-83D382785DCF};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
-    <PublishUrl>publish\</PublishUrl>
-    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
-    <AndroidUseLatestPlatformSdk>False</AndroidUseLatestPlatformSdk>
-    <TargetFrameworkVersion>v4.0.3</TargetFrameworkVersion>
+    <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>..\bin</OutputPath>
-    <DefineConstants>DEBUG</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <ConsolePause>false</ConsolePause>
-    <DocumentationFile>..\bin\CryptSharp.XML</DocumentationFile>
-    <AndroidLinkMode>None</AndroidLinkMode>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>TRACE;DEBUG;NETSTANDARD2_0</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>..\bin</OutputPath>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <ConsolePause>false</ConsolePause>
-    <DebugSymbols>true</DebugSymbols>
-    <DocumentationFile>..\bin\CryptSharp.XML</DocumentationFile>
-    <AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
-  </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="System" />
+    <Compile Remove="BlowfishCrypter.cs" />
+    <Compile Remove="BlowfishCrypterVariant.cs" />
+    <Compile Remove="Crypter.Common.cs" />
+    <Compile Remove="Crypter.cs" />
+    <Compile Remove="CrypterEnvironment.cs" />
+    <Compile Remove="CrypterOption.cs" />
+    <Compile Remove="CrypterOptionKey.cs" />
+    <Compile Remove="CrypterOptions.cs" />
+    <Compile Remove="CrypterProperty.cs" />
+    <Compile Remove="ExtendedDesCrypter.cs" />
+    <Compile Remove="Internal\ByteArray.cs" />
+    <Compile Remove="LdapCrypter.cs" />
+    <Compile Remove="LdapCrypterOption.cs" />
+    <Compile Remove="LdapCrypterVariant.cs" />
+    <Compile Remove="MD5Crypter.cs" />
+    <Compile Remove="MD5CrypterVariant.cs" />
+    <Compile Remove="PhpassCrypter.cs" />
+    <Compile Remove="PhpassCrypterVariant.cs" />
+    <Compile Remove="Sha256Crypter.cs" />
+    <Compile Remove="Sha512Crypter.cs" />
+    <Compile Remove="ShaCrypter.cs" />
+    <Compile Remove="TraditionalDesCrypter.cs" />
+    <Compile Remove="Utility\Base16Encoding.cs" />
+    <Compile Remove="Utility\Base2Encoding.cs" />
+    <Compile Remove="Utility\Base32Encoding.cs" />
+    <Compile Remove="Utility\Base64Encoding.cs" />
+    <Compile Remove="Utility\BaseEncoding.cs" />
+    <Compile Remove="Utility\BaseEncoding.Decoding.cs" />
+    <Compile Remove="Utility\BaseEncoding.Encoding.cs" />
+    <Compile Remove="Utility\BlowfishCipher.Constants.cs" />
+    <Compile Remove="Utility\BlowfishCipher.cs" />
+    <Compile Remove="Utility\DesCipher.Constants.cs" />
+    <Compile Remove="Utility\DesCipher.cs" />
+    <Compile Remove="Utility\EksBlowfishKeyExpansionFlags.cs" />
+    <Compile Remove="Utility\Helper.cs" />
+    <Compile Remove="Utility\HexBase16.cs" />
+    <Compile Remove="Utility\Pow2Base.cs" />
+    <Compile Remove="Utility\SecureComparison.cs" />
+    <Compile Remove="Utility\UnixBase64.cs" />
   </ItemGroup>
+
   <ItemGroup>
-    <Compile Include="Internal\BitMath.cs" />
-    <Compile Include="Internal\BitPacking.cs" />
-    <Compile Include="Internal\Check.cs" />
-    <Compile Include="Internal\Exceptions.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Utility\Pbkdf2.cs" />
-    <Compile Include="Utility\Salsa20Core.cs" />
-    <Compile Include="Utility\SCrypt.cs" />
-    <Compile Include="Internal\Security.cs" />
+    <None Remove="test-vector-gen.php" />
+    <None Remove="test.php" />
   </ItemGroup>
-  <Import Project="$(MSBuildExtensionsPath)\Novell\Novell.MonoDroid.CSharp.targets" />
+
 </Project>
