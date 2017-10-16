@@ -21,6 +21,7 @@ using System;
 using System.Security.Cryptography;
 using System.Threading;
 using CryptSharp.Internal;
+using System.Threading.Tasks;
 
 namespace CryptSharp.Utility
 {
@@ -149,7 +150,7 @@ namespace CryptSharp.Utility
             if (maxThreads == null) { maxThreads = int.MaxValue; }
 
             if (!BitMath.IsPositivePowerOf2(cost))
-                { throw Exceptions.ArgumentOutOfRange("cost", "Cost must be a positive power of 2."); }
+            { throw Exceptions.ArgumentOutOfRange("cost", "Cost must be a positive power of 2."); }
             Check.Range("blockSize", blockSize, 1, int.MaxValue / 128);
             Check.Range("parallel", parallel, 1, int.MaxValue / MFLen);
             Check.Range("maxThreads", (int)maxThreads, 1, int.MaxValue);
@@ -169,7 +170,7 @@ namespace CryptSharp.Utility
                                     int cost, int blockSize, int parallel, int maxThreads)
         {
             int current = 0;
-            ThreadStart workerThread = delegate()
+            Action worker = () =>
             {
                 while (true)
                 {
@@ -181,10 +182,10 @@ namespace CryptSharp.Utility
             };
 
             int threadCount = Math.Max(1, Math.Min(Environment.ProcessorCount, Math.Min(maxThreads, parallel)));
-            Thread[] threads = new Thread[threadCount - 1];
-            for (int i = 0; i < threads.Length; i++) { (threads[i] = new Thread(workerThread, 8192)).Start(); }
-            workerThread();
-            for (int i = 0; i < threads.Length; i++) { threads[i].Join(); }
+            Task[] tasks = new Task[threadCount - 1];
+            for (int i = 0; i < tasks.Length; i++) { tasks[i] = Task.Run(worker); }
+            worker();
+            for (int i = 0; i < tasks.Length; i++) { tasks[i].Wait(); }
         }
 
         static void SMix(uint[] B, int Boffset, uint[] Bp, int Bpoffset, uint N, int r)
@@ -201,7 +202,7 @@ namespace CryptSharp.Utility
             for (uint i = 0; i < N; i++)
             {
                 Array.Copy(x, v[i], Bs);
-                BlockMix(x, 0, x, 0, scratchX, scratchY, scratch1, r); 
+                BlockMix(x, 0, x, 0, scratchX, scratchY, scratch1, r);
             }
             for (uint i = 0; i < N; i++)
             {
@@ -219,9 +220,9 @@ namespace CryptSharp.Utility
 
         static void BlockMix
             (uint[] B,        // 16*2*r
-             int    Boffset,
+             int Boffset,
              uint[] Bp,       // 16*2*r
-             int    Bpoffset,
+             int Bpoffset,
              uint[] x,        // 16
              uint[] y,        // 16*2*r -- unnecessary but it allows us to alias B and Bp
              uint[] scratch,  // 16

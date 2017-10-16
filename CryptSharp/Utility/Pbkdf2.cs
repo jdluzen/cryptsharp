@@ -72,7 +72,7 @@ namespace CryptSharp.Utility
             Check.Length("salt", salt, 0, int.MaxValue - 4);
             Check.Range("iterations", iterations, 1, int.MaxValue);
             if (hmacAlgorithm.HashSize == 0 || hmacAlgorithm.HashSize % 8 != 0)
-                { throw Exceptions.Argument("hmacAlgorithm", "Unsupported hash size."); }
+            { throw Exceptions.Argument("hmacAlgorithm", "Unsupported hash size."); }
 
             int hmacLength = hmacAlgorithm.HashSize / 8;
             _saltBuffer = new byte[salt.Length + 4]; Array.Copy(salt, _saltBuffer, salt.Length);
@@ -154,9 +154,7 @@ namespace CryptSharp.Utility
         void ComputeHmac(byte[] input, byte[] output)
         {
             _hmacAlgorithm.Initialize();
-            _hmacAlgorithm.TransformBlock(input, 0, input.Length, input, 0);
-            _hmacAlgorithm.TransformFinalBlock(new byte[0], 0, 0);
-            Array.Copy(_hmacAlgorithm.Hash, output, output.Length);
+            Array.Copy(_hmacAlgorithm.ComputeHash(input), output, output.Length);
         }
         #endregion
 
@@ -166,7 +164,7 @@ namespace CryptSharp.Utility
         /// <exclude />
         public override void Flush()
         {
-            
+
         }
 
         /// <inheritdoc />

@@ -1,6 +1,6 @@
 using System.Reflection;
 
-#if !NETSTANDARD2_0
+#if !NETSTANDARD1_6
 [assembly: AssemblyCompany("Illusory Studios LLC")]
 [assembly: AssemblyCopyright("Copyright 2011, 2013 James F. Bellinger <http://www.zer7.com/software/cryptsharp>")]
 [assembly: AssemblyProduct("CryptSharp")]
