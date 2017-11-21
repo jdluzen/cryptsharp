@@ -22,19 +22,26 @@ using System.Security.Cryptography;
 
 namespace CryptSharp.Internal
 {
-	static class Security
+    static class Security
     {
-        public static void Clear(Array array)
+        public static void Clear<T>(T[] array)
         {
-            if (array != null) { Array.Clear(array, 0, array.Length); }
+            if (array != null)
+            {
+#if __BRIDGE__
+                Buffer.Clear(array);
+#else
+                Array.Clear(array, 0, array.Length);
+#endif
+            }
         }
 
         public static byte[] GenerateRandomBytes(int count)
         {
-			Check.Range("count", count, 0, int.MaxValue);
+            Check.Range("count", count, 0, int.MaxValue);
 
             RandomNumberGenerator rng = RandomNumberGenerator.Create();
-			byte[] bytes = new byte[count]; rng.GetBytes(bytes); return bytes;
+            byte[] bytes = new byte[count]; rng.GetBytes(bytes); return bytes;
         }
     }
 }

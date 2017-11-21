@@ -68,7 +68,6 @@ namespace CryptSharp.Utility
                                                int derivedKeyLength)
         {
             Check.Range("derivedKeyLength", derivedKeyLength, 0, int.MaxValue);
-
             using (Pbkdf2 kdf = GetStream(key, salt, cost, blockSize, parallel, maxThreads))
             {
                 return kdf.Read(derivedKeyLength);
@@ -174,18 +173,26 @@ namespace CryptSharp.Utility
             {
                 while (true)
                 {
+#if __BRIDGE__
+                    int j = ++current - 1;
+#else
                     int j = Interlocked.Increment(ref current) - 1;
+#endif
                     if (j >= parallel) { break; }
 
                     SMix(B0, j * MFLen / 4, B0, j * MFLen / 4, (uint)cost, blockSize);
                 }
             };
-
+#if __BRIDGE__
+            for (int i = 0; i < parallel; i++)
+                worker();//FIXME: less than optimal
+#else
             int threadCount = Math.Max(1, Math.Min(Environment.ProcessorCount, Math.Min(maxThreads, parallel)));
             Task[] tasks = new Task[threadCount - 1];
             for (int i = 0; i < tasks.Length; i++) { tasks[i] = Task.Run(worker); }
             worker();
             for (int i = 0; i < tasks.Length; i++) { tasks[i].Wait(); }
+#endif
         }
 
         static void SMix(uint[] B, int Boffset, uint[] Bp, int Bpoffset, uint N, int r)
@@ -198,10 +205,10 @@ namespace CryptSharp.Utility
             uint[] x = new uint[Bs]; uint[][] v = new uint[N][];
             for (int i = 0; i < v.Length; i++) { v[i] = new uint[Bs]; }
 
-            Array.Copy(B, Boffset, x, 0, Bs);
+            ArrayCopy(B, Boffset, x, 0, Bs);
             for (uint i = 0; i < N; i++)
             {
-                Array.Copy(x, v[i], Bs);
+                ArrayCopy(x, 0, v[i], 0, Bs);
                 BlockMix(x, 0, x, 0, scratchX, scratchY, scratch1, r);
             }
             for (uint i = 0; i < N; i++)
@@ -210,7 +217,7 @@ namespace CryptSharp.Utility
                 for (int k = 0; k < scratchZ.Length; k++) { scratchZ[k] = x[k] ^ vj[k]; }
                 BlockMix(scratchZ, 0, x, 0, scratchX, scratchY, scratch1, r);
             }
-            Array.Copy(x, 0, Bp, Bpoffset, Bs);
+            ArrayCopy(x, 0, Bp, Bpoffset, Bs);
 
             for (int i = 0; i < v.Length; i++) { Security.Clear(v[i]); }
             Security.Clear(v); Security.Clear(x);
@@ -229,24 +236,33 @@ namespace CryptSharp.Utility
              int r)
         {
             int k = Boffset, m = 0, n = 16 * r;
-            Array.Copy(B, (2 * r - 1) * 16, x, 0, 16);
+            ArrayCopy(B, (2 * r - 1) * 16, x, 0, 16);
 
             for (int i = 0; i < r; i++)
             {
                 for (int j = 0; j < scratch.Length; j++) { scratch[j] = x[j] ^ B[j + k]; }
                 Salsa20Core.Compute(8, scratch, 0, x, 0);
-                Array.Copy(x, 0, y, m, 16);
+                ArrayCopy(x, 0, y, m, 16);
                 k += 16;
 
                 for (int j = 0; j < scratch.Length; j++) { scratch[j] = x[j] ^ B[j + k]; }
                 Salsa20Core.Compute(8, scratch, 0, x, 0);
-                Array.Copy(x, 0, y, m + n, 16);
+                ArrayCopy(x, 0, y, m + n, 16);
                 k += 16;
 
                 m += 16;
             }
 
-            Array.Copy(y, 0, Bp, Bpoffset, y.Length);
+            ArrayCopy(y, 0, Bp, Bpoffset, y.Length);
+        }
+
+        private static void ArrayCopy(uint[] src, int srcOffset, uint[] dst, int dstOffset, int count)
+        {
+#if !__BRIDGE__
+            Array.Copy(src, srcOffset, dst, dstOffset, count);
+#else
+            Buffer.ArrayCopy(src, srcOffset, dst, dstOffset, count);
+#endif
         }
     }
 }
